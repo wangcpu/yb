@@ -1,0 +1,143 @@
+﻿
+========================================================================
+ 驻场离线 Python 依赖包 —— Windows 使用说明
+ 64 位 Windows + Python 3.10.11，全程离线
+========================================================================
+
+
+一、文件夹结构
+------------------------------------------------------------------------
+windows\                            本文件夹，共 143 个文件，约 358 MB
+|
++- packages_win\                    138 个 wheel，约 330 MB
+|                                   离线安装的唯一货源，不要改名或删文件
+|
++- python310\                       1 个文件，27.7 MB
+|    +- python-3.10.11-amd64.exe     Python 官方安装程序（带官方签名）
+|
++- requirements.txt                 离线安装清单，138 条精确版本
+|
++- install_python.bat               一键安装 Python（双击运行，自动提权）
++- install_libs.bat                 一键安装全部依赖库（双击运行，自动提权）
+|
++- 使用说明.txt                      本文件
+
+不想敲命令的话，双击 install_python.bat，装完再双击 install_libs.bat 即可。
+
+
+二、命令在哪跑
+------------------------------------------------------------------------
+【终端】     本文件夹的命令行窗口（地址栏输入 cmd 回车）
+【Notebook】 浏览器里打开的 notebook 单元格
+
+本文件夹只是离线包的存放位置：Python 装进系统盘（默认
+C:\Program Files\Python310\），不装在这个文件夹里。命令里的
+packages_win 是相对路径，所以要在本文件夹跑（换成绝对路径可任意目录跑）。
+
+
+三、安装 Python
+------------------------------------------------------------------------
+【终端，在本文件夹】运行（双击该文件也一样），一路默认，
+不用勾 "Add python.exe to PATH"（后面统一用 py -3.10 定位，不依赖 PATH）：
+
+    python310\python-3.10.11-amd64.exe
+
+静默安装（批量部署 / 无人值守）：
+
+    python310\python-3.10.11-amd64.exe /quiet InstallAllUsers=1 PrependPath=0 Include_test=0
+
+不想敲命令：双击 install_python.bat，它会自动提权、静默安装、装完校验版本。
+
+确认（装完后 Python 属于系统，任意目录都能查）：
+
+    py -3.10 --version                应输出 Python 3.10.11
+    py -3.10 -m pip --version         应输出 pip 23.0.1（不低于 21.3 即可）
+
+
+四、安装库
+------------------------------------------------------------------------
+不想敲命令：双击 install_libs.bat，它会自动装完 138 个库并做导入自检。
+
+第 1 步【终端，在本文件夹】装清单里的 138 个库：
+
+    py -3.10 -m pip install --no-index --find-links=packages_win -r requirements.txt
+
+  参数含义
+    --no-index      禁止联网找包
+    --find-links    只在本地 packages_win 里找安装文件
+    -r              按 requirements.txt 的 138 条精确版本安装
+
+  耗时约 3 分钟，看到 "Successfully installed ..." 即完成。
+
+第 2 步 验证导入（看到 OK 就是装好了）：
+
+    py -3.10 -c "import numpy,pandas,sklearn,xgboost,lightgbm,shap,matplotlib,seaborn,openpyxl,jupyterlab; print('OK')"
+
+第 3 步 对照版本（可选）：
+
+    py -3.10 -m pip freeze
+
+  与 requirements.txt 逐条比一遍，版本应当完全一致。
+
+装包里没有的库 —— 先在联网机器上下载轮子：
+
+    py -3.10 -m pip download --only-binary=:all: --platform win_amd64 --python-version 3.10 --implementation cp --abi cp310 --abi abi3 --abi none 包名 -d wheels_extra
+
+把 wheels_extra 拷到本文件夹，【终端，在本文件夹】再装：
+
+    py -3.10 -m pip install --no-index --find-links=wheels_extra 包名
+
+【Notebook 单元格】里也行：%pip install --no-index --find-links=..\wheels_extra 包名
+（装完 Kernel -> Restart Kernel；用 %pip 不要用 !pip）
+
+导入：【Notebook 单元格】直接 import numpy as np
+确认单个库：py -3.10 -c "import pandas; print(pandas.__version__)"
+列出已装全部：py -3.10 -m pip list
+
+铁律：
+  · --no-index 不能省（否则会去连公网，卡死或报超时）
+  · 解释器一律用 py -3.10，不要裸敲 python / pip（可能指向机器上的
+    Anaconda 2.7 或别的版本，装进去等于白装）
+  · 不需要升级 pip，自带的 pip 23.0.1 已经足够
+
+
+五、启动 Notebook
+------------------------------------------------------------------------
+【终端，在本文件夹】
+
+    py -3.10 -m jupyter lab                       （经典界面用 notebook）
+
+浏览器自动打开；没弹出就把窗口里的地址整条复制进去：
+http://127.0.0.1:8888/lab?token=xxxxxxxx
+
+常用参数（接在上面命令后面）：
+    --port 8899       8888 被占用时换端口
+    --no-browser      不自动弹浏览器，只打印地址
+
+停止服务：回到该窗口按两次 Ctrl+C（关浏览器不算停止）。
+
+内核要钉住，否则会跑到机器上别的 Python 里，明明装了也报
+ModuleNotFoundError：
+
+    py -3.10 -m ipykernel install --user --name offline310 --display-name "Python 3.10 离线包"
+    py -3.10 -m jupyter lab --MappingKernelManager.default_kernel_name=offline310
+
+新建 notebook 后右上角 Kernel 选「Python 3.10 离线包」，Shift+Enter 运行单元格。
+
+
+六、出问题先看这三条
+------------------------------------------------------------------------
+1. "Could not find a version that satisfies the requirement xxx"
+   先查 pip 版本：py -3.10 -m pip --version
+   低于 21.3 的 pip 不认 cp310 系列安装包，就会报这个错，
+   很容易被误判成"漏下了安装文件"。
+   解决：重装本文件夹里的 Python 3.10.11，它自带 pip 23.0.1。
+
+2. "Could not open requirements file"
+   路径里有中文或空格，命令行参数传给 pip 时被编码破坏了。
+   把整个文件夹挪到 D:\deploy 这类纯英文路径再装。
+
+3. Notebook 里 import 不到刚装的包
+   连的是别的内核。按第五节注册 offline310 内核，再切换过去。
+
+========================================================================
